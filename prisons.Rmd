@@ -1,0 +1,96 @@
+---
+title: "Prisons"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(readODS)
+library(extrafont)
+library(janitor)
+```
+
+<h1>British prisons and standards of treatment</h1>
+The analysis will be based on data from the Ministry of Justice's open database, as well as the HMPI's reports (PDF files).
+
+<h2>Deaths in custody from the Ministry of Justice open data website</h2>
+
+The dataset includes deaths since 1978. For some reason (?), there is a lot of detail on self-inflicted deaths but very little on natural deaths.
+(https://data.justice.gov.uk/prisons)
+
+```{r Deaths}
+deaths.in.custody <- read_ods('safety-in-custody-Deaths-dec-18.ods', sheet = '1_1_Deaths_by_calendar_year', skip = 3)
+
+names(deaths.in.custody)[1] <- 'category'
+
+deaths.in.custody %>%
+  filter(!is.na(`1978`)) %>%
+  mutate(category = recode(category, 'Other3' = 'Other', 'POPULATION4' = 'Population')) -> deaths.in.custody
+
+
+# prepare data for plot
+# use the rate to standardise
+deaths.rate <- deaths.in.custody[(7:10),] %>%
+  gather(key = 'year', value = 'rate', -category) %>%
+  mutate(rate = as.numeric(rate), year = as.numeric(year)) 
+```
+
+
+<h3>Death rate in custody in English and Welsh prisons (all causes included)</h3>
+Note: "Gibson" used as Windows font
+
+```{r, echo=FALSE}
+ggplot(deaths.rate, aes(year, rate, colour = category, group= category)) +
+  geom_line(size = 1.2) +
+  theme_minimal() +
+    
+  scale_x_continuous(breaks = c(breaks=seq(1980,2015,5),  2018), labels = c('1980', '85', '90', '95', '2000', '05', '10', '15', '18'), limits = c(NA, 2018)) +
+  labs(x = NULL, y = NULL, title = 'Self-inflicted deaths in prison on the rise in England and Wales', subtitle = 'Deaths/1,000 prisoners', caption = 'Data: Ministry of Justice') +
+  theme(panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank(), legend.position = 'top', axis.ticks.x = element_line(colour = '#CCCCCC'), axis.line.x = element_line(colour = '#e6d9ce', size = .8), panel.grid.major.y = element_line(colour= '#e6d9ce'), panel.grid.minor.y = element_blank(), axis.text = element_text(colour = '#66605C'), text = element_text(family = 'Gibson', colour = '#66605C'), legend.title = element_blank(), legend.margin=margin(t = 3, unit='pt'), legend.spacing.x = unit(10, 'pt'), plot.caption = element_text(margin = margin(t = 15, unit = 'pt'))) +
+  scale_y_continuous(position = 'right', expand = c(0, 0)) +
+  scale_colour_brewer(type = 'qual', palette = 'Set2')
+```
+
+<h2>Compliance with recommendations</h2>
+Recommendations data extracted from HMPI annual reports tables.
+```{r Recommendations}
+rec.achieved <- read.csv('recommendations.csv')
+
+# this contains totals for all recommendations made and their outcome
+# breakdown by recommendation only for recent years
+# details will be removed for analysis
+
+
+rec.achieved %>%
+  clean_names() %>%
+  gather(key = 'recommendation.type', value = 'rate', -year) %>%
+  mutate(recommendation.type = factor(recommendation.type))-> rec.tidy
+
+
+rec.total <- rec.tidy %>%
+  filter(recommendation.type %in% c('total_achieved', 'total_partial', 'total_not')) %>%
+  mutate(recommendation.type = trimws(recommendation.type)) %>%
+    mutate(recommendation.type = factor(recommendation.type, levels = c('total_achieved', 'total_partial', 'total_not'), ordered = TRUE)) %>%
+  filter(year %in% c('2013/14', '2017/18')) %>%
+  mutate(recommendation.type = recode(recommendation.type, 'total_achieved' = 'Achieved', 'total_partial' = 'Partially achieved', 'total_not' = 'Not achieved' ))
+```
+
+
+Comparison between 2013/14 and 2017/18 (latest year available, published July 2018)
+```{r 'Recommendations: comparison', echo = FALSE}
+ggplot(rec.total, aes(year, rate, fill = recommendation.type)) + geom_col(position = position_fill(reverse = TRUE)) +
+  scale_fill_manual(values = c('#1E558B', '#93D2E6', '#FF76A4')) +
+   annotate("text", x=2.55, y=c(0.18, 0.45, 0.75), label= c('Achieved', 'Partially achieved',"Not achieved"), family = 'Gibson', colour = '#66605C') +
+  scale_y_continuous(labels = c(0, 25, 50, 75, 100), expand = c(0, 0)) +
+  scale_x_discrete(expand = c(.58, 0)) +
+  labs(x = NULL, y = NULL, title = "Prisons increasingly fail to act on authority's recommendations", subtitle = '% of total', caption = 'Data: HMPI annual reports.\nThe count excludes recommendations that are no longer relevant.') +
+  coord_flip() +
+  theme_minimal() +
+  theme(legend.position = 'none', panel.grid = element_blank(), text = element_text(family = 'Gibson', colour = '#66605C'), axis.ticks.x = element_line(colour= '#e6d9ce'), axis.line.y = element_line(colour = '#e6d9ce'), plot.margin = margin(t = 10, r = 10, b = 10, l = 10, unit = 'pt'), plot.subtitle = element_text(margin = margin(t = 0, r = 0, b = 20, l = 0)), plot.caption = element_text(margin = margin(t = 15, unit = 'pt')))
+```
+
