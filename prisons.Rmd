@@ -94,3 +94,82 @@ ggplot(rec.total, aes(year, rate, fill = recommendation.type)) + geom_col(positi
   theme(legend.position = 'none', panel.grid = element_blank(), text = element_text(family = 'Gibson', colour = '#66605C'), axis.ticks.x = element_line(colour= '#e6d9ce'), axis.line.y = element_line(colour = '#e6d9ce'), plot.margin = margin(t = 10, r = 10, b = 10, l = 10, unit = 'pt'), plot.subtitle = element_text(margin = margin(t = 0, r = 0, b = 20, l = 0)), plot.caption = element_text(margin = margin(t = 15, unit = 'pt')))
 ```
 
+
+
+<h3>Prison performance year by year</h3>
+Each prison receives an inspection at least every 5 years, which means numbers of recommendations are only partly comparable and not statistically significant.
+It can be interesting to compare the performance of public vs. private prisons (excluding immigration centres, police custody, etc.)
+A lookup table will be used to associate prisons and ownerships in the score and recommendation tables. The work is very rough and would need further review (prisons may be recorded under different names; e.g. Usk/Prescoed may appear separately).
+All the tables are extracted from the PDF reports with Tabula.
+```{r 'Prisons scores distribution'}
+
+prison.lookup <- read.csv('prison_lookup.csv')
+
+
+
+
+recs.1718 <- read.csv('recs_1718.csv') %>%
+  clean_names() %>%
+  left_join(prison.lookup, by = 'establishment') %>%
+  select(establishment, contains('total'), -total, Ownership, type) %>%
+  gather(key = rec_type, value = count, -establishment, -Ownership, -type)
+
+
+
+
+ggplot(recs.1718, aes(Ownership, as.numeric(count), fill = rec_type)) + geom_col(position = 'fill') +
+   scale_fill_manual(values = c( '#FF76A4', '#93D2E6', '#1E558B')) +
+   annotate("text", x=2.55, y=c(0.1, 0.45, 0.75), label= c('Achieved', 'Partially achieved',"Not achieved"), family = 'Gibson', colour = '#66605C') +
+  scale_y_continuous(labels = c(0, 25, 50, 75, 100), expand = c(0, 0)) +
+  scale_x_discrete(expand = c(.58, 0)) +
+  labs(x = NULL, y = NULL, title = "Public and private sector: who is more compliant?", subtitle = '% of total', caption = 'Data: HMPI 2017-18 report.\nThe count excludes recommendations that are no longer relevant.\nN: 14 (Private), 37 (Public)') +
+  coord_flip() +
+  theme_minimal() +
+  theme(legend.position = 'none', panel.grid = element_blank(), text = element_text(family = 'Gibson', colour = '#66605C'), axis.ticks.x = element_line(colour= '#e6d9ce'), axis.line.y = element_line(colour = '#e6d9ce'), plot.margin = margin(t = 10, r = 10, b = 10, l = 10, unit = 'pt'), plot.subtitle = element_text(margin = margin(t = 0, r = 0, b = 20, l = 0)), plot.caption = element_text(margin = margin(t = 15, unit = 'pt')))
+
+```
+
+
+<h2>Prisoner violence: exploring data</h2>
+Data is taken from the HMPPS open database. This was originally part of an .ods file but was copied and cleaned in Excel (column names would have been too complex to rename). The aim is to find the best and worst performers against a number of parameters and look at the recommendations/reports to find the main issues.
+Data is from 2017/2018 (though inspections occurred at different times)
+```{r Prisoner-on-prisoner violence}
+cpt.1718 <- read.csv('parameters_1718.csv', na = c('', '-'))
+
+# distribution of values for prisoner-on-prisoner-violence
+cpt.1718 %>%
+  filter(!is.na(assaults_prisoner_change)) %>%
+  arrange(desc(assaults_prisoner_change)) %>%
+  ggplot(aes(assaults_prisoner_change)) + geom_histogram(bins = 50)+
+  theme_minimal() +
+  labs(title = 'Prisoner on prisoner violence - distribution of values', subtitle = 'Rate/1,000 prisoners', x = '', y = 'Rate') +
+  theme(text = element_text(family = 'Gibson', colour = '#66605C'))
+```
+It appears that, in most instances, levels of violence have remained stable or have slightly increased. There are a few notable outliers - let's find out who they are.
+
+Visualising the top and worst performers:
+```{r}
+
+# dirty code, look for something cleaner
+
+pr_violence_top10 <- cpt.1718 %>%
+  filter(!is.na(assaults_prisoner_change)) %>%
+  arrange(desc(assaults_prisoner_change)) %>%
+  top_n(10, assaults_prisoner_change)
+
+pr_violence_tb10 <- cpt.1718 %>%
+  filter(!is.na(assaults_prisoner_change)) %>%
+  arrange(desc(assaults_prisoner_change)) %>%
+  top_n(-10, assaults_prisoner_change) %>%
+  rbind(pr_violence_top10, .)
+
+ggplot(pr_violence_tb10, aes(reorder(establishment, assaults_prisoner_change), assaults_prisoner_change)) + geom_col(fill = '#1E558B') +
+  coord_flip() +
+  theme_minimal() +
+  labs(x = '',y = '', title = 'Levels of violence on the rise in British prisons', subtitle = '% change on violence rate/1,000 prisoners', caption = 'Data: HMPP Database. Change from 2016/17 to 2017/18.\nOnly the prisons with the highest % increases and decreases are included in the chart.') +
+  theme(panel.grid.major.y = element_blank(), text = element_text(family = 'Gibson', colour = '#66605C'), axis.ticks.x = element_line(colour= '#e6d9ce'), axis.line.y = element_line(colour = '#e6d9ce'), plot.margin = margin(t = 10, r = 10, b = 10, l = 10, unit = 'pt'), plot.subtitle = element_text(margin = margin(t = 0, r = 0, b = 20, l = 0)), plot.caption = element_text(margin = margin(t = 15, unit = 'pt')))
+```
+
+So what's happening at Werrington? It doesn't look like a glitch in the data, as Wetherby also displays a similar (concerning) trend. A cursory look at Werrington's <a href='https://www.justice.gov.uk/downloads/contacts/hmps/prison-finder/hmyoi-werrington-action-plan.pdf' target = '_blank'>action plan</a> suggests money could be a factor (recommendations are often refused/partly adopted due to lack of resources). It is not necessarily the main cause, but it doesn't make things easier. Other issues like staff training should be look into.
+Note to self: look at other parameters as well.
+Also: is staff sick leave a valid measure of good performance? (Hint: turnover is increasing)
