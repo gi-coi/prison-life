@@ -94,11 +94,12 @@ ggplot(rec.total, aes(year, rate, fill = recommendation.type)) + geom_col(positi
   theme(legend.position = 'none', panel.grid = element_blank(), text = element_text(family = 'Gibson', colour = '#66605C'), axis.ticks.x = element_line(colour= '#e6d9ce'), axis.line.y = element_line(colour = '#e6d9ce'), plot.margin = margin(t = 10, r = 10, b = 10, l = 10, unit = 'pt'), plot.subtitle = element_text(margin = margin(t = 0, r = 0, b = 20, l = 0)), plot.caption = element_text(margin = margin(t = 15, unit = 'pt')))
 ```
 
+To be fair, this chart indicates an interesting trend but could be easily contested. Each prison receives an inspection at least every 5 years, which means numbers of recommendations are only partly comparable and trends cannot be statistically significant. Longer manual work might lead to compare each prison's performance over time (even then, it all depends on changes in criteria used).
 
 
 <h3>Prison performance year by year</h3>
-Each prison receives an inspection at least every 5 years, which means numbers of recommendations are only partly comparable and not statistically significant.
-It can be interesting to compare the performance of public vs. private prisons (excluding immigration centres, police custody, etc.)
+
+A cursory comparison between public vs. private prisons (excluding immigration centres, police custody, etc.)
 A lookup table will be used to associate prisons and ownerships in the score and recommendation tables. The work is very rough and would need further review (prisons may be recorded under different names; e.g. Usk/Prescoed may appear separately).
 All the tables are extracted from the PDF reports with Tabula.
 ```{r 'Prisons scores distribution'}
